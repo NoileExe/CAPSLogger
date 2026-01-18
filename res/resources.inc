@@ -1,0 +1,7 @@
+; resources.inc — для MASM
+
+; H_MENU      EQU 99
+ICON_NO     EQU 100
+ICON_CAPS   EQU 101
+ICON_NUM    EQU 102
+ICON_SCRL   EQU 103

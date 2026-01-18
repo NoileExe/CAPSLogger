@@ -1,0 +1,23 @@
+#define		H_MENU		99
+
+#define		ICON_NO		100
+#define		ICON_CAPS	101
+#define		ICON_NUM	102
+#define		ICON_SCRL	103
+//..........................................................................
+ICON_NO		ICON	"..\\res\\NO.ICO"
+ICON_CAPS	ICON	"..\\res\\CAPS.ICO"
+ICON_NUM	ICON	"..\\res\\NUM.ICO"
+ICON_SCRL	ICON	"..\\res\\SCROLL.ICO"
+//..........................................................................
+H_MENU	MENU
+{
+        POPUP	"TRAY"
+        {
+			MENUITEM "Close", 10
+        }
+}
+//..........................................................................
+
+
+  
