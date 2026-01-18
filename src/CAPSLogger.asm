@@ -28,13 +28,17 @@ includelib	\masm32\lib\advapi32.lib
 
 MAIN_WINDOW_PROC		PROTO	:DWORD, :DWORD, :DWORD, :DWORD
 MODULE_ADD_PROC			PROTO	hWnd1:DWORD, hIcon:DWORD 
-MODULE_MODIFY_PROC		PROTO	hWnd1:DWORD, hIcon:DWORD, hOption:DWORD
+MODULE_MODIFY_PROC		PROTO	hWnd1:DWORD
 MODULE_DELETE_PROC		PROTO	hWnd1:DWORD
 
 ;----------------------------------------------------------------------------------------------
 
 public		HINST
 public		WM_PRIVATE_MESSAGE
+
+public		isCapsLockOn
+public		isNumLockOn
+public		isScrollLockOn
 
 ;----------------------------------------------------------------------------------------------
 ;data--data--data--data--data--data--data--data--data--data--		PROC
@@ -43,21 +47,21 @@ public		WM_PRIVATE_MESSAGE
 
 HINST			DWORD		NULL
 HWND_WIN		DWORD		NULL	; дескриптор
-H_MENU			DWORD		NULL
+H_MENU			DWORD		NULL   
 
 stringClass			DB		"MY_WINDOW", 0
 stringCaption		DB		"MY_CAPTION", 0
-
-buttonClass			DB		"BUTTON", 0
-editClass			DB		"EDIT", 0
 
 msgWindow			MSG		<0>
 
 privateMessage		DB  	"MY_PRIVATE_MESSAGE", 0
 WM_PRIVATE_MESSAGE	DWORD	NULL
 
-regTemplate			DB		"Width = %#08X ", 0
-tmpBuff				DB		256 dup (0)
+isCapsLockOn		BYTE	FALSE
+isNumLockOn			BYTE	FALSE
+isScrollLockOn		BYTE	FALSE
+
+szMutexName			DB		"CAPSLoggerV1_Instance_Mutex", 0
 
 ;--------------------------------------------------------------------------------------------------
 ;code--code--code--code--code--code--code--code--code--code--		PROC
@@ -65,7 +69,16 @@ tmpBuff				DB		256 dup (0)
 .code
 
 START:
-
+	
+	; «ащита от повторного запуска
+	INVOKE	CreateMutex,	NULL, TRUE, OFFSET szMutexName
+	INVOKE	GetLastError
+	.IF		EAX == ERROR_ALREADY_EXISTS
+		JMP EXIT
+	.ENDIF
+	
+	
+	
 	INVOKE	GetModuleHandle, NULL
 	MOV		HINST, EAX
 
@@ -78,9 +91,6 @@ START:
 							NULL, NULL, HINST, NULL
 
 	MOV		HWND_WIN, EAX
-
-	;INVOKE	ShowWindow, HWND_WIN, TRUE
-	;INVOKE	UpdateWindow, HWND_WIN
 
 
 MSG_LOOP:
@@ -100,6 +110,20 @@ EXIT:
 ;-------------------------------------------------------------------------------------------------- 
 MY_REGISTER_CLASS	PROC
 	LOCAL	_Struct_WNDCLASS:WNDCLASSEX
+		
+		; »нициализаци€ статусов опций кнопок в зависимости от текущего состо€ни€ в системе (при запуске программы)
+		INVOKE	GetKeyState, VK_CAPITAL		; Caps Lock
+		AND		EAX, 0001h
+		MOV		isCapsLockOn, AL
+		
+		INVOKE	GetKeyState, VK_NUMLOCK
+		AND		EAX, 0001h
+		MOV		isNumLockOn, AL
+		
+		INVOKE	GetKeyState, VK_SCROLL
+		AND		EAX, 0001h
+		MOV		isScrollLockOn, AL
+		
 		
 		MOV		_Struct_WNDCLASS.cbSize, SIZEOF WNDCLASSEX
 		MOV		_Struct_WNDCLASS.style, CS_DBLCLKS						; стиль окна
@@ -124,7 +148,6 @@ MY_REGISTER_CLASS	PROC
 
 
 		INVOKE	CreateSolidBrush, 000000h	; возвратит идентификатор кисти
-		; INVOKE	GetStockObject, BLACK_BRUSH
 
 		MOV  _Struct_WNDCLASS.hbrBackground,  EAX
 
@@ -209,43 +232,35 @@ MAIN_WINDOW_PROC	PROC	USES	EBX ESI EDI \
 	WMKEYUP:
 		INVOKE	GetKeyState, VK_CAPITAL		; Caps Lock
 		AND		EAX, 0001h
+		CMP		AL, isCapsLockOn
+		; не изменилось Ч пропустить
+		JE		@F
+			MOV isCapsLockOn, AL	; обновить состо€ние
+		@@:
 		
-		.IF		EAX != 0
-			MOV		EAX, ICON_CAPS
-			JMP		_LoadIcon
-		.ENDIF
-		
-		
+		; --- ѕроверка Num Lock ---
 		INVOKE	GetKeyState, VK_NUMLOCK
 		AND		EAX, 0001h
-		.IF		EAX != 0
-			MOV		EAX, ICON_NUM
-			JMP		_LoadIcon
-		.ENDIF
-		
-		
+		CMP AL, isNumLockOn
+		JE  @F
+			MOV isNumLockOn, AL
+		@@:
+
+		; --- ѕроверка Scroll Lock ---
 		INVOKE	GetKeyState, VK_SCROLL
 		AND		EAX, 0001h
-		
-		.IF		EAX != 0
-			MOV		EAX, ICON_SCRL
-			JMP		_LoadIcon
-		.ENDIF
-		
-		;(GetKeyState(VK_CAPITAL) & 0x0001)!=0
-		
-		MOV EAX, 100
-		
-	_LoadIcon:
-		;загружаем иконку
-		MOV		EBX, EAX
-		
-		INVOKE		LoadIcon,	HINST, EAX
-		
+		CMP AL, isScrollLockOn
+		JE  @F
+			MOV isScrollLockOn, AL
+		@@:
+
 		;смена иконки в трее
-		INVOKE	MODULE_MODIFY_PROC,		hWnd_, EAX, EBX
-		JMP		FINISH
-		
+		INVOKE	MODULE_MODIFY_PROC,		hWnd_
+
+		JMP		FINISH 
+
+
+
 	WMDESTROY:
 		INVOKE	MODULE_DELETE_PROC,		hWnd_
 		INVOKE	KillTimer,				hWnd_, 1

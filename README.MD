@@ -1,6 +1,6 @@
 `# CAPSLogger - отображение в трее состояния Caps/Num/Scroll Lock`
 
-![Интерфейс программы в трее](docs/screenshot.png)
+![Интерфейс программы в трее](docs/screenshot.png)  
 *Интерфейс CAPSLogger для разных состояний*
 
 

@@ -23,8 +23,7 @@ includelib	\masm32\lib\advapi32.lib
 ;----------------------------------------------------------------------------------------------
 
 MODULE_ADD_PROC			PROTO	hWnd1:DWORD, hIcon:DWORD
-MODULE_MODIFY_PROC		PROTO	hWnd1:DWORD, hIcon:DWORD, hOption:DWORD
-MODULE_DELETE_proc		PROTO	hWnd1:DWORD 
+MODULE_MODIFY_PROC		PROTO	hWnd1:DWORD
 MODULE_DELETE_PROC		PROTO	hWnd1:DWORD
 
 ;----------------------------------------------------------------------------------------------
@@ -32,18 +31,23 @@ MODULE_DELETE_PROC		PROTO	hWnd1:DWORD
 EXTERN		HINST:DWORD 
 EXTERN		WM_PRIVATE_MESSAGE:DWORD
 
+EXTERN		isCapsLockOn:BYTE
+EXTERN		isNumLockOn:BYTE
+EXTERN		isScrollLockOn:BYTE
+
 ;----------------------------------------------------------------------------------------------
 ;data--data--data--data--data--data--data--data--data--data--		PROC
 ;----------------------------------------------------------------------------------------------
-.data
-
+.const
 stringNO			DB		"Caps/Num/Scroll LOCK выключены", 0
 stringCAPS			DB		"ВКЛЮЧЕН Caps LOCK", 0
 stringNUM			DB		"ВКЛЮЧЕН Num LOCK", 0
 stringSCROLL		DB		"ВКЛЮЧЕН Scroll LOCK", 0
-NULL_STRING			DB		0, 0, 0, 0
+CRLF				DB		13, 10, 0		; Перход на новую строку
 
 
+.data
+stringBuffer		DB		256 dup(0)
 
 ;----------------------------------------------------------------------------------------------
 ;code--code--code--code--code--code--code--code--code--code--		PROC
@@ -79,7 +83,7 @@ MODULE_ADD_PROC		ENDP
 ;----------------------------------------------------------------------------------------------
 ;											MODIFY
 ;----------------------------------------------------------------------------------------------
-MODULE_MODIFY_PROC	PROC	hWnd1:DWORD, hIcon:DWORD, hOption:DWORD
+MODULE_MODIFY_PROC	PROC	hWnd1:DWORD
 	LOCAL	_icon_Notify:NOTIFYICONDATA
 		
 		MOV		_icon_Notify.cbSize,	SIZEOF NOTIFYICONDATA
@@ -90,28 +94,72 @@ MODULE_MODIFY_PROC	PROC	hWnd1:DWORD, hIcon:DWORD, hOption:DWORD
 		;-----  делаем подсказку
 		INVOKE	RtlZeroMemory,	ADDR _icon_Notify.szTip,	64
 		
-		.IF		hOption == ICON_NO
-			INVOKE	lstrlen, ADDR stringNO
-			INVOKE	RtlMoveMemory, ADDR _icon_Notify.szTip, ADDR stringNO, EAX
-		.ELSEIF	hOption == ICON_CAPS
-			INVOKE	lstrlen, ADDR stringCAPS
-			INVOKE	RtlMoveMemory, ADDR _icon_Notify.szTip, ADDR stringCAPS, EAX
-		.ELSEIF	hOption == ICON_NUM
-			INVOKE	lstrlen, ADDR stringNUM
-			INVOKE	RtlMoveMemory, ADDR _icon_Notify.szTip, ADDR stringNUM, EAX
-		.ELSEIF	hOption == ICON_SCRL
-			INVOKE	lstrlen, ADDR stringSCROLL
-			INVOKE	RtlMoveMemory, ADDR _icon_Notify.szTip, ADDR stringSCROLL, EAX
+		
+		; Составление всплывающей подсказки о статусе включенных опций кнопок CAPS/NUM/SCROLL
+		MOV		BYTE PTR stringBuffer, 0		; Очистить буфер
+		
+		.IF		isCapsLockOn == TRUE
+			INVOKE lstrcpy, ADDR stringBuffer, ADDR stringCAPS
 		.ENDIF
+		; ----------------------------------------------------------------------
+		; ----------------------------------------------------------------------
+		.IF		isNumLockOn == TRUE
+			.IF		BYTE PTR stringBuffer != 0
+				INVOKE lstrcat, ADDR stringBuffer, ADDR CRLF	; Добавляем CRLF
+			.ENDIF
+			
+			INVOKE lstrcat, ADDR stringBuffer, ADDR stringNUM
+		.ENDIF
+		; ----------------------------------------------------------------------
+		; ----------------------------------------------------------------------
+		.IF		isScrollLockOn == TRUE
+			.IF		BYTE PTR stringBuffer != 0
+				INVOKE lstrcat, ADDR stringBuffer, ADDR CRLF	; Добавляем CRLF
+			.ENDIF
+			
+			INVOKE lstrcat, ADDR stringBuffer, ADDR stringSCROLL
+		.ENDIF
+		; ----------------------------------------------------------------------
+		; ----------------------------------------------------------------------
+		.IF		BYTE PTR stringBuffer == 0
+			INVOKE lstrcat, ADDR stringBuffer, ADDR stringNO
+		.ENDIF
+		
+		
+		; Установка текста всплывающего сообщения
+		INVOKE	lstrlen,		ADDR stringBuffer
+		INVOKE	RtlMoveMemory,	ADDR _icon_Notify.szTip, ADDR stringBuffer, EAX
+		
+		
+		; Выбор и установка иконки
+		
+		.IF		isCapsLockOn == TRUE
+			; ---
+			INVOKE	LoadIcon,	HINST, ICON_CAPS
+			; ---
+		.ELSEIF	isNumLockOn == TRUE
+			; ---
+			INVOKE	LoadIcon,	HINST, ICON_NUM
+			; ---
+		.ELSEIF	isScrollLockOn == TRUE
+			; ---
+			INVOKE	LoadIcon,	HINST, ICON_SCRL
+			; ---
+		.ELSE
+			; ---
+			INVOKE	LoadIcon,	HINST, ICON_NO
+			; ---
+		.ENDIF
+		
+		mMOVE	_icon_Notify.hIcon,	EAX
 		
 		mMOVE	_icon_Notify.uCallbackMessage,	WM_PRIVATE_MESSAGE
 		
-		mMOVE	_icon_Notify.hIcon,	hIcon
 		
 		INVOKE	Shell_NotifyIconA,		NIM_MODIFY, ADDR _icon_Notify
 		
 		RET		8
-		
+	
 MODULE_MODIFY_PROC	ENDP
 ;----------------------------------------------------------------------------------------------
 ;											DELETE
