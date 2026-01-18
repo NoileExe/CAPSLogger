@@ -132,26 +132,25 @@ MODULE_MODIFY_PROC	PROC	hWnd1:DWORD
 		
 		
 		; Выбор и установка иконки
+		XOR EAX, EAX	; EAX = 0
 		
 		.IF		isCapsLockOn == TRUE
-			; ---
-			INVOKE	LoadIcon,	HINST, ICON_CAPS
-			; ---
-		.ELSEIF	isNumLockOn == TRUE
-			; ---
-			INVOKE	LoadIcon,	HINST, ICON_NUM
-			; ---
-		.ELSEIF	isScrollLockOn == TRUE
-			; ---
-			INVOKE	LoadIcon,	HINST, ICON_SCRL
-			; ---
-		.ELSE
-			; ---
-			INVOKE	LoadIcon,	HINST, ICON_NO
-			; ---
+			OR		EAX, 1
 		.ENDIF
 		
+		.IF	isNumLockOn == TRUE
+			OR		EAX, 2
+		.ENDIF
+		
+		.IF	isScrollLockOn == TRUE
+			OR		EAX, 4
+		.ENDIF
+		
+		ADD		EAX, 100		; 0>100 (ICON_NO), 1>101 (ICON_CAPS), ..., 7>107 (ICON_ALL)
+		
+		INVOKE	LoadIcon,	HINST, EAX
 		mMOVE	_icon_Notify.hIcon,	EAX
+		
 		
 		mMOVE	_icon_Notify.uCallbackMessage,	WM_PRIVATE_MESSAGE
 		
